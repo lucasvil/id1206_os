@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/mman.h>
@@ -88,6 +89,7 @@ return new;
 
 struct head* flist;
 
+// detach from free list
 void detach(struct head* block) {
   if (block->next != NULL) {
     block->next->prev = block->prev;
@@ -99,6 +101,7 @@ void detach(struct head* block) {
   }
 }
 
+// insert at start of list
 void insert(struct head* block) {
   block->next = flist;
   block->prev = NULL;
@@ -106,4 +109,70 @@ void insert(struct head* block) {
     flist->prev = block;
   }
   flist = block;
+}
+
+// adjust size to be multiple of ALIGN
+int adjust(size_t request) {
+  int size = LIMIT(request);
+  if (size % ALIGN) {
+    return (size + ALIGN - (size % ALIGN));
+  }
+  return size;
+}
+
+// find first free
+struct head* find(int size) {
+  struct head* current = flist;
+  while (current != NULL) {
+    if (size < current->size) {
+      detach(current);
+      if (current->size >= LIMIT(size)) {
+        struct head* splt = split(current, size);
+        insert(before(splt)); //add remaining back to list
+        return splt;
+      }
+      current->free = FALSE;
+      after(current)->bfree = FALSE;
+      return current;
+    }
+    current = current->next;
+  }
+  return NULL;
+}
+
+struct head* dalloc(size_t request) {
+  if (request <= 0) {
+    return NULL;
+  }
+  int size = adjust(request);
+  struct head* taken = find(size);
+  if (taken == NULL) {
+    return NULL;
+  } else {
+    return HIDE(taken);
+  }
+}
+
+void dfree(void* memory) {
+  if (memory != NULL) {
+    struct head* block = MAGIC(memory);
+
+    struct head* aft = after(block);
+    block->free = TRUE;
+    aft->bfree = TRUE;
+    insert(block);
+  }
+  return;
+}
+
+void printArena() {
+  struct head* current = arena;
+  while (current->size > 0) {
+    printf("adress: %p \nsize: %d\nfree: %d\n", current, current->size, current->free);
+    current = after(current);
+  }
+}
+
+void init() {
+  flist = (struct head*) new();
 }

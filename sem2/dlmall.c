@@ -140,6 +140,42 @@ struct head* find(int size) {
   return NULL;
 }
 
+struct head* merge(struct head* block) {
+  struct head* aft = after(block);
+  if (block->bfree) {
+    /* unlink the block before */
+    struct head* bef = before(block);
+    detach(bef);
+
+    /* calculate and set the total size of the merged blocks */
+    int size = block->size + bef->size + HEAD;
+    bef->size = size;
+
+    /* update the block after the merged blocks */
+    aft->bfree = TRUE;
+    aft->bsize = size;
+
+    /* continue with the merged block */
+    block = bef;
+  }
+
+  if (aft->free) {
+    /* unlink the block */
+    detach(aft);
+
+    /* calculate and set the total size of the merged blocks */
+    int size = block->size + aft-size + HEAD;
+    block->size = size;
+
+    /* update the block after the merged block */
+    struct head* aftaft = after(aft);
+    aftaft->bfree = TRUE;
+    aftaft->bsize = size;
+
+  }
+  return block;
+}
+
 struct head* dalloc(size_t request) {
   if (request <= 0) {
     return NULL;
@@ -156,7 +192,7 @@ struct head* dalloc(size_t request) {
 void dfree(void* memory) {
   if (memory != NULL) {
     struct head* block = MAGIC(memory);
-
+    // block = merge(block);
     struct head* aft = after(block);
     block->free = TRUE;
     aft->bfree = TRUE;
@@ -173,6 +209,17 @@ void printArena() {
   }
 }
 
-void init() {
+int getFreeLength() {
+  int length = 0;
+  struct head* current = flist;
+  while (current != NULL) {
+    length++;
+    current = current->next;
+  }
+  return length;
+}
+
+struct head* init() {
   flist = (struct head*) new();
+  return arena;
 }

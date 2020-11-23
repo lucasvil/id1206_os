@@ -2,5 +2,7 @@
 
 struct head* dalloc(size_t);
 void dfree(void*);
-void init();
+struct head* init();
 void printArena();
+int getFreeLength();
+void sanity();

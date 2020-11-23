@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <sys/mman.h>
 #include <errno.h>
 
@@ -30,22 +31,6 @@ struct head* after(struct head* block) {
 
 struct head* before(struct head* block) {
   return (struct head*)((char*)block - (block->bsize + HEAD));
-}
-
-struct head* split(struct head* block, int size) {
-  int rsize = block->size - (size + HEAD);
-  block->size = rsize;
-
-  struct head* splt = after(block);
-  splt->bsize = block->size;
-  splt->bfree = block->free;
-  splt->size = size;
-  splt->free = FALSE;
-
-  struct head* aft = after(splt);
-  aft->bsize = splt->size;
-
-  return splt;
 }
 
 struct head* arena = NULL;
@@ -89,6 +74,22 @@ return new;
 
 struct head* flist;
 
+struct head* split(struct head* block, int size) {
+  int rsize = block->size - (size + HEAD);
+  block->size = rsize;
+
+  struct head* splt = after(block);
+  splt->bsize = block->size;
+  splt->bfree = block->free;
+  splt->size = size;
+  splt->free = FALSE;
+
+  struct head* aft = after(splt);
+  aft->bsize = splt->size;
+
+  return splt;
+}
+
 // detach from free list
 void detach(struct head* block) {
   if (block->next != NULL) {
@@ -129,7 +130,7 @@ struct head* find(int size) {
       if (current->size >= LIMIT(size)) {
         struct head* splt = split(current, size);
         insert(before(splt)); //add remaining back to list
-        return splt;
+        current = splt;
       }
       current->free = FALSE;
       after(current)->bfree = FALSE;
@@ -142,17 +143,16 @@ struct head* find(int size) {
 
 struct head* merge(struct head* block) {
   struct head* aft = after(block);
-  if (block->bfree) {
+  if (before(block)->free) {
     /* unlink the block before */
     struct head* bef = before(block);
     detach(bef);
 
     /* calculate and set the total size of the merged blocks */
-    int size = block->size + bef->size + HEAD;
+    uint size = block->size + bef->size + HEAD;
     bef->size = size;
 
     /* update the block after the merged blocks */
-    aft->bfree = TRUE;
     aft->bsize = size;
 
     /* continue with the merged block */
@@ -164,13 +164,11 @@ struct head* merge(struct head* block) {
     detach(aft);
 
     /* calculate and set the total size of the merged blocks */
-    int size = block->size + aft-size + HEAD;
+    uint size = block->size + aft-size + HEAD;
     block->size = size;
 
     /* update the block after the merged block */
-    struct head* aftaft = after(aft);
-    aftaft->bfree = TRUE;
-    aftaft->bsize = size;
+    after(aft)->bsize = size;
 
   }
   return block;
@@ -192,8 +190,8 @@ struct head* dalloc(size_t request) {
 void dfree(void* memory) {
   if (memory != NULL) {
     struct head* block = MAGIC(memory);
-    // block = merge(block);
     struct head* aft = after(block);
+    block = merge(block);
     block->free = TRUE;
     aft->bfree = TRUE;
     insert(block);
@@ -204,7 +202,7 @@ void dfree(void* memory) {
 void printArena() {
   struct head* current = arena;
   while (current->size > 0) {
-    printf("adress: %p \nsize: %d\nfree: %d\n", current, current->size, current->free);
+    printf("adress: %p \nsize: %d\nfree: %d\nbfree: %d\n", current, current->size, current->free, current->bfree);
     current = after(current);
   }
 }
@@ -217,6 +215,42 @@ int getFreeLength() {
     current = current->next;
   }
   return length;
+}
+
+void sanity() {
+  bool status = true;
+  struct head* currentFree = flist;
+  struct head* current = arena;
+  bool bfree = current->bfree;
+  int bsize = current->bsize;
+
+  /* check arena is initialized correctly and intact */
+  if ((current->bfree == TRUE) || (current->bsize != 0)) {
+    status = false;
+    printf("arena={bfree=%d, arena=%d}\n", current->bfree, current->bsize);
+  }
+
+  /* Check flist attributes */
+  if (flist->bfree == TRUE) {
+    status = false;
+    printf("flist={bfree=%d, bszie=%p}\n", flist->bfree, flist);
+  }
+
+  /* loop list */
+  while (current->size > 0) {
+    if ((current->bfree != bfree) || (current->bsize != bsize)) {
+      status = false;
+      printf("Sanity: problem at adress: %d\n");
+      printf("\t{bfree=%d, bsize=%d}\n", current->bfree, current->bsize);
+      printf("\texpected={bfree=%d, bsize=%d}\n", bfree, bsize);
+    }
+    bfree = current->free;
+    bsize = current->size;
+    current = after(current);
+  }
+  if (status) {
+    printf("Sanity: No problems found.\n");
+  }
 }
 
 struct head* init() {

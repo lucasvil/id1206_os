@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "dlmall.h"
 
 int main(void) {
@@ -7,9 +8,9 @@ int main(void) {
   struct head* block2 = dalloc(100);
   struct head* block3 = dalloc(100);
   dfree(block3);
-  struct head* block4 = dalloc(200);
-  dfree(block2);
-
+  struct head* block4 = dalloc(300);
+  dfree(block1);
   // print entire arena
   printArena();
+  sanity();
 }

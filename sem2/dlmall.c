@@ -41,16 +41,14 @@ struct head* new(){
     return NULL;
   }
 
-//using mmap, could use sbrk
-  struct head* new = mmap(NULL, ARENA,
-    PROT_READ | PROT_WRITE,
-    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+/* using mmap, could use sbrk */
+struct head* new = mmap(NULL, ARENA, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 if (new == MAP_FAILED) {
   printf("mmap failed: error %d\n", errno);
   return NULL;
 }
 
-// make room for head and dummy
+/* make room for head and dummy */
 uint size = ARENA - 2*HEAD;
 
 new->bfree = FALSE;
@@ -60,13 +58,13 @@ new->size = size;
 
 struct head* sentinel = after(new);
 
-// only touch the status fields
+/* only touch the status fields */
 sentinel->bfree = new->free;
 sentinel->bsize = new->size;
 sentinel->free = FALSE;
 sentinel->size = 0;
 
-// this is the only arena we have
+/* this is the only arena we have */
 arena = (struct head*)new;
 
 return new;
@@ -90,7 +88,7 @@ struct head* split(struct head* block, int size) {
   return splt;
 }
 
-// detach from free list
+/* detach from free list */
 void detach(struct head* block) {
   if (block->next != NULL) {
     block->next->prev = block->prev;
@@ -102,7 +100,7 @@ void detach(struct head* block) {
   }
 }
 
-// insert at start of list
+/* insert at flist */
 void insert(struct head* block) {
   block->next = flist;
   block->prev = NULL;
@@ -112,7 +110,7 @@ void insert(struct head* block) {
   flist = block;
 }
 
-// adjust size to be multiple of ALIGN
+/* adjust size to be multiple of ALIGN */
 int adjust(size_t request) {
   int size = LIMIT(request);
   if (size % ALIGN) {
@@ -121,7 +119,7 @@ int adjust(size_t request) {
   return size;
 }
 
-// find first free
+/* find first free */
 struct head* find(int size) {
   struct head* current = flist;
   while (current != NULL) {
@@ -143,20 +141,18 @@ struct head* find(int size) {
 
 struct head* merge(struct head* block) {
   struct head* aft = after(block);
-  if (before(block)->free) {
+  if (block->bfree) {
     /* unlink the block before */
-    struct head* bef = before(block);
-    detach(bef);
+    detach(before(block));
 
     /* calculate and set the total size of the merged blocks */
-    uint size = block->size + bef->size + HEAD;
-    bef->size = size;
+    before(block)->size = block->size + before(block)->size + HEAD;
 
     /* update the block after the merged blocks */
-    aft->bsize = size;
+    aft->bsize = before(block)->size;
 
     /* continue with the merged block */
-    block = bef;
+    block = before(block);
   }
 
   if (aft->free) {
@@ -164,11 +160,10 @@ struct head* merge(struct head* block) {
     detach(aft);
 
     /* calculate and set the total size of the merged blocks */
-    uint size = block->size + aft-size + HEAD;
-    block->size = size;
+    block->size = block->size + aft->size + HEAD;
 
     /* update the block after the merged block */
-    after(aft)->bsize = size;
+    after(aft)->bsize = block->size;
 
   }
   return block;
@@ -177,6 +172,10 @@ struct head* merge(struct head* block) {
 struct head* dalloc(size_t request) {
   if (request <= 0) {
     return NULL;
+  }
+  if (arena == NULL) {
+    arena = new();
+    flist = arena;
   }
   int size = adjust(request);
   struct head* taken = find(size);
@@ -190,8 +189,8 @@ struct head* dalloc(size_t request) {
 void dfree(void* memory) {
   if (memory != NULL) {
     struct head* block = MAGIC(memory);
-    struct head* aft = after(block);
     block = merge(block);
+    struct head* aft = after(block);
     block->free = TRUE;
     aft->bfree = TRUE;
     insert(block);
@@ -207,6 +206,7 @@ void printArena() {
   }
 }
 
+/* get length of free list */
 int getFreeLength() {
   int length = 0;
   struct head* current = flist;
@@ -217,6 +217,19 @@ int getFreeLength() {
   return length;
 }
 
+int getAllocSize() {
+  int size = 0;
+  struct head* current = arena;
+  while (current->size > 0) {
+    if (!current->free) {
+      size += current->size;
+    }
+    current = after(current);
+  }
+  return size;
+}
+
+// TODO check for fragmentation
 void sanity() {
   bool status = true;
   struct head* currentFree = flist;
@@ -251,9 +264,4 @@ void sanity() {
   if (status) {
     printf("Sanity: No problems found.\n");
   }
-}
-
-struct head* init() {
-  flist = (struct head*) new();
-  return arena;
 }

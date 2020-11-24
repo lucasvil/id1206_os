@@ -6,3 +6,4 @@ struct head* init();
 void printArena();
 int getFreeLength();
 void sanity();
+int getAllocSize();

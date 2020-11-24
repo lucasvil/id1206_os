@@ -7,10 +7,10 @@ int main(void) {
   struct head* block1 = dalloc(100); // should alloc 136 = 100 + 24 + 8
   struct head* block2 = dalloc(100);
   struct head* block3 = dalloc(100);
-  dfree(block3);
-  struct head* block4 = dalloc(300);
+  dfree(block2);
   dfree(block1);
+
   // print entire arena
   printArena();
-  sanity();
+  printf("length of free list: %d\n", getFreeLength());
 }

@@ -1,4 +1,4 @@
-#include <stddef.h>
+#include <stdint.h>
 
 struct head* dalloc(size_t);
 void dfree(void*);

@@ -6,8 +6,8 @@
 #define MIN 8
 #define MAX 128
 #define BLOCKS 256
-#define ROUNDS 10
-#define LOOP 200
+#define ROUNDS 100
+#define LOOP 100
 
 void doAlloc() {
   struct head* blocks[BLOCKS];
@@ -28,15 +28,15 @@ void doAlloc() {
       }
       size_t request = (rand() % (MAX - MIN)) + MIN;
       if ((blocks[i] = dalloc(request)) == NULL) {
-        fprintf(stderr, "memory allocation failed.\n");
+        //fprintf(stderr, "memory allocation failed.\n");
       }
     }
     int total = getAllocSize();
     int flistSize = getFreeLength();
-    printf("Round: %d\tflist Size: %d\tallocated memory: %d\n", j, flistSize, total);
+    printf("%d %d\n", j, flistSize);
   }
   /* perform sanity check */
-  sanity();
+  //sanity();
 }
 
 int main() {

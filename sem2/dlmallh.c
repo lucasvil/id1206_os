@@ -8,11 +8,11 @@
 #define TRUE 1
 #define FALSE 0
 
-#define HEAD (sizeof(struct head))
-#define MIN(size) (((size)>(8))?(size):(8))
+#define HEAD (sizeof(struct taken))
+#define MIN(size) (((size)>(16))?(size):(16))
 #define LIMIT(size) (MIN(0) + HEAD + size)
-#define MAGIC(memory)((struct head*)memory - 1)
-#define HIDE(block) (void*)((struct head*)block + 1)
+#define MAGIC(memory)((struct taken*)memory - 1)
+#define HIDE(block) (void*)((struct taken*)block + 1)
 #define ALIGN 8
 #define ARENA (64*1024)
 
@@ -23,6 +23,13 @@ struct head {
   uint16_t size;    // 2 bytes, the size (max 2^16/64Ki byte)
   struct head* next;  // 8 bytes pointer
   struct head* prev;  // 8 bytes pointer
+};
+
+struct taken {
+  uint16_t bfree;
+  uint16_t bsize;
+  uint16_t free;
+  uint16_t size;
 };
 
 struct head* after(struct head* block) {

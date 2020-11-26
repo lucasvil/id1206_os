@@ -34,8 +34,7 @@ int main() {
     }
     int total = getAllocSize();
     int flistSize = getFreeLength();
-    printf("%d %d\n", j, fails);
+    printf("%d %d\n", j, total /*flistSize*/);
   }
-  //printf("%d\n", fails);
   return 0;
 }

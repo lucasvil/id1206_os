@@ -195,3 +195,47 @@ int green_join(green_t* thread, void** res) {
 
   return 0;
 }
+
+/*
+* MUTEX
+*/
+
+int green_mutex_init(green_mutex_t* mutex) {
+  mutex->taken = FALSE;
+  mutex->susp = NULL;
+  return 0;
+}
+
+int green_mutex_lock(green_mutex_t* mutex) {
+  sigprocmask(SIG_BLOCK, &block, NULL);
+
+  green_t* susp = running;
+  if (mutex->taken) {
+    // suspend the running thread
+    mutex->susp = susp;
+
+    // find the next thread
+    green_t* next = dequeue(readyQ);
+    swapcontext(susp->context, next->context);
+  } else {
+    // take the lock
+    mutex->taken = TRUE;
+  }
+  sigprocmask(SIG_UNBLOCK, &block, NULL);
+  return 0;
+}
+
+int green_mutex_unlock(green_mutex_t* mutex) {
+  sigprocmask(SIG_BLOCK, &block, NULL);
+
+  if (mutex->susp != NULL) {
+    // move suspended thread to ready queue
+    enqueue(readyQ, mutex->susp);
+    mutex->susp = NULL;
+  } else {
+    // release lock
+    mutex->taken = FALSE;
+  }
+  sigprocmask(SIG_UNBLOCK, &block, NULL);
+  return 0;
+}

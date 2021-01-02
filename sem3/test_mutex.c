@@ -6,9 +6,9 @@ green_mutex_t mutex;
 
 void* test(void* arg) {
   int id = *(int*)arg;
-  int loop = 1000000;
-  green_mutex_lock(&mutex);
+  int loop = 100000;
   while (loop > 0) {
+    green_mutex_lock(&mutex);
     loop--;
     count++;
     green_mutex_unlock(&mutex);

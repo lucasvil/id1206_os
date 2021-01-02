@@ -202,7 +202,7 @@ int green_join(green_t* thread, void** res) {
 
 int green_mutex_init(green_mutex_t* mutex) {
   mutex->taken = FALSE;
-  mutex->susp = NULL;
+  mutex->suspQ = malloc(sizeof(queue));
   return 0;
 }
 
@@ -212,10 +212,11 @@ int green_mutex_lock(green_mutex_t* mutex) {
   green_t* susp = running;
   if (mutex->taken) {
     // suspend the running thread
-    mutex->susp = susp;
+    enqueue(mutex->suspQ, susp);
 
     // find the next thread
     green_t* next = dequeue(readyQ);
+    running = next;
     swapcontext(susp->context, next->context);
   } else {
     // take the lock
@@ -228,10 +229,10 @@ int green_mutex_lock(green_mutex_t* mutex) {
 int green_mutex_unlock(green_mutex_t* mutex) {
   sigprocmask(SIG_BLOCK, &block, NULL);
 
-  if (mutex->susp != NULL) {
+  if (mutex->suspQ->head != NULL) {
     // move suspended thread to ready queue
-    enqueue(readyQ, mutex->susp);
-    mutex->susp = NULL;
+    green_t* susp = dequeue(mutex->suspQ);
+    enqueue(readyQ, susp);
   } else {
     // release lock
     mutex->taken = FALSE;

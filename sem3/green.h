@@ -21,7 +21,7 @@ typedef struct green_cond_t {
 
 typedef struct green_mutex_t {
   volatile int taken;
-  struct green_t* susp;
+  struct queue* suspQ;
 } green_mutex_t;
 
 int green_create(green_t* thread, void* (*fun)(void*), void* arg);

@@ -67,20 +67,7 @@ green_t* dequeue(green_queue* queue) {
   queue->size--;
   return thread;
 }
-void printQueues(green_cond_t* cond, green_mutex_t* mutex) {
-  sigprocmask(SIG_BLOCK, &block, NULL);
-  int condSize = 0;
-  int mutexSize = 0;
-  int rdySize = ready_queue->size;
-  if (cond != NULL) {
-    condSize = cond->susp->size;
-  }
-  if (mutex != NULL) {
-    mutexSize = mutex->susp->size;
-  }
-  printf("READY: %d, COND: %d, MUTEX: %d\n", rdySize, condSize, mutexSize);
-  sigprocmask(SIG_UNBLOCK, &block, NULL);
-}
+
 /*
 * GREEN
 */
@@ -88,6 +75,7 @@ void printQueues(green_cond_t* cond, green_mutex_t* mutex) {
 void init() {
   ready_queue = (green_queue*)newQueue();
 
+  getcontext(&main_cntx);
   sigemptyset(&block);
   sigaddset(&block, SIGVTALRM);
 
@@ -102,8 +90,6 @@ void init() {
   period.it_interval = interval;
   period.it_value = interval;
   setitimer(ITIMER_VIRTUAL, &period, NULL);
-
-  getcontext(&main_cntx);
 }
 
 void green_thread() {
@@ -112,7 +98,6 @@ void green_thread() {
   void* result = (this->fun)(this->arg);
 
   // place waiting (joining) thread in ready queue
-  sigprocmask(SIG_BLOCK, &block, NULL);
   if (this->join) {
     enqueue(ready_queue, this->join);
   }
@@ -127,7 +112,6 @@ void green_thread() {
   green_t* next = dequeue(ready_queue);
   running = next;
   setcontext(next->context);
-  sigprocmask(SIG_UNBLOCK, &block, NULL);
 }
 
 int green_create(green_t* new, void* (*fun)(void*), void* arg) {
@@ -149,40 +133,38 @@ int green_create(green_t* new, void* (*fun)(void*), void* arg) {
   new->zombie = FALSE;
 
   // add new to the ready queue;
-  sigprocmask(SIG_BLOCK, &block, NULL);
   enqueue(ready_queue, new);
-  sigprocmask(SIG_UNBLOCK, &block, NULL);
 
   return 0;
 }
 
 int green_yield() {
+  sigprocmask(SIG_BLOCK, &block, NULL);
+
   green_t* susp = running;
   // add susp to ready queue
-  sigprocmask(SIG_BLOCK, &block, NULL);
   enqueue(ready_queue, susp);
 
   // select the next thread for execution
   green_t* next = dequeue(ready_queue);
   running = next;
   swapcontext(susp->context, next->context);
-  sigprocmask(SIG_UNBLOCK, &block, NULL);
 
+  sigprocmask(SIG_UNBLOCK, &block, NULL);
   return 0;
 }
 
 int green_join(green_t* thread, void** res) {
+  sigprocmask(SIG_BLOCK, &block, NULL);
   if (!thread->zombie) {
     // add as joining thread
     green_t* susp = running;
     thread->join = susp;
 
     //select the next thread for execution
-    sigprocmask(SIG_BLOCK, &block, NULL);
     green_t* next = dequeue(ready_queue);
     running = next;
     swapcontext(susp->context, next->context);
-    sigprocmask(SIG_UNBLOCK, &block, NULL);
   }
   // collect result
   res = thread->retval;
@@ -190,6 +172,7 @@ int green_join(green_t* thread, void** res) {
   // free context
   free(thread->context);
 
+  sigprocmask(SIG_UNBLOCK, &block, NULL);
   return 0;
 }
 
@@ -267,8 +250,8 @@ int green_cond_wait(green_cond_t* cond, green_mutex_t* mutex) {
 
 void green_cond_signal(green_cond_t* cond) {
   if (cond->susp->size > 0) {
-    green_t* unsusp = dequeue(cond->susp);
-    enqueue(ready_queue, unsusp);
+    green_t* susp = dequeue(cond->susp);
+    enqueue(ready_queue, susp);
   }
 }
 

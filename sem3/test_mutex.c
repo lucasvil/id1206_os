@@ -6,7 +6,7 @@ green_mutex_t mutex;
 
 void* test(void* arg) {
   int id = *(int*)arg;
-  int loop = 100000;
+  int loop = 1000000;
   while (loop > 0) {
     green_mutex_lock(&mutex);
     printf("Thread %d: %d\n", id, loop);

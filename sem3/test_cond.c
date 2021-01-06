@@ -14,7 +14,7 @@ void* test(void* arg) {
       flag = (id + 1) %2;
       green_cond_signal(&cond);
     } else {
-      green_cond_wait(&cond);
+      green_cond_wait(&cond, NULL);
     }
   }
 }

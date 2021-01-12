@@ -1,3 +1,5 @@
+*.dat
+
 # Images
 *.png
 *.gif

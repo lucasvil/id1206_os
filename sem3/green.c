@@ -242,7 +242,7 @@ int green_cond_wait(green_cond_t* cond, green_mutex_t* mutex) {
 //   green_t* susp = running;
 //   enqueue(cond->susp, susp);
 
-//   green_t* next = dequeue(readyQ);
+//   green_t* next = dequeue(ready_queue);
 //   running = next;
 //   swapcontext(susp->context, next->context);
 //   sigprocmask(SIG_UNBLOCK, &block, NULL);
